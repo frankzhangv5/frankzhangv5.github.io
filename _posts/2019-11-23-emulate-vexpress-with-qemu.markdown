@@ -89,7 +89,7 @@ cp -r _install/* rootfs/
 ```
 cp -P /usr/arm-linux-gnueabi/lib/* rootfs/lib/
 ```
->这一步不是必须的
+>如果编译busybox是静态链接的话，就不需要这一步；busybox默认时动态链接。
 
 ## 5.4 创建根文件系统目录
 ```
