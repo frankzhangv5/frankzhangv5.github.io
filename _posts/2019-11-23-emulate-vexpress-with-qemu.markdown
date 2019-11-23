@@ -53,12 +53,12 @@ cp arch/arm/boot/dts/*ca9.dtb out/
 cp .config  out/
 ```
 
-# 4.安装qemu模拟器
+# 4. 安装qemu模拟器
 ```
 sudo apt-get install qemu-system-arm
 ```
 
-# 5.制作根文件系统
+# 5. 制作根文件系统
 根文件系统由基本的运行命令、库和字符设备构成。
 基本的运行命令需要使用Busybox，这个库也需要进行交叉编译，因此可以运行下面的指令进行源代码下载。
 
@@ -85,7 +85,7 @@ mkdir rootfs/lib
 cp -r _install/* rootfs/
 ```
 
-## 5.3从工具链中拷贝运行库到lib下
+## 5.3 从工具链中拷贝运行库到lib下
 ```
 cp -P /usr/arm-linux-gnueabi/lib/* rootfs/lib/
 ```
@@ -113,7 +113,7 @@ chmod 777 ./rootfs/etc/init.d/rcS
 
 
 *注意：实际上还可以在这个镜像中插入其他的文件夹，可以参考[ARM Versatile Express Emulation On Qemu From Scratch: Part 1](https://learningfromyoublog.wordpress.com/2016/04/05/131/)，写的很详细。
-## 5.5生成镜像
+## 5.5 生成镜像
 ```
 dd if=/dev/zero of=a9rootfs.ext3 bs=1M count=32
 ```
@@ -123,7 +123,7 @@ dd if=/dev/zero of=a9rootfs.ext3 bs=1M count=32
 mkfs.ext3 a9rootfs.ext3
 ```
 
-## 5.7将文件拷贝到镜像中
+## 5.7 将文件拷贝到镜像中
 ```
 mkdir tmpfs
 sudo mount -t ext3 -o loop a9rootfs.ext3 tmpfs/
