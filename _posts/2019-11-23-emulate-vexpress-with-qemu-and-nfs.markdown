@@ -1,14 +1,15 @@
 ---
 layout: post
-title:  "QEMU模拟ARM Versatile Express Cortex A9四核处理器开发板"
+title:  "QEMU模拟ARM vexpress使用NFS作为rootfs"
 date:   2019-11-23 14:31:18 +0800
 categories: linux arm
 ---
 
 环境配置：Ubuntu 19.04，Kernel 4.4.199
 <br>
-内容参考了：https://blog.csdn.net/nxcxl88/article/details/53244754
-
+内容参考了：[ARM Versatile Express Emulation On Qemu From Scratch : Part 2](https://learningfromyoublog.wordpress.com/2017/01/02/arm-versatile-express-emulation-on-qemu-from-scratch-part-2/)
+<br>
+目的：使用NFS作为根文件系统的目的是为了方便将文件传输到模拟器，方便调试。
 
 # 1. 下载kernel
 从kernel下载：
@@ -75,25 +76,25 @@ make install CROSS_COMPILE=arm-linux-gnueabi-
 
 ## 5.1 创建rootfs目录：
 ```
-mkdir rootfs
-
-mkdir rootfs/lib
+sudo mkdir /nfs
+sudo chown 1000:1000 /nfs
 ```
 
 ## 5.2 拷贝busybox命令
 ```
-cp -r _install/* rootfs/
+cp -r _install/* /nfs/
 ```
 
 ## 5.3 从工具链中拷贝运行库到lib下
 ```
-cp -P /usr/arm-linux-gnueabi/lib/* rootfs/lib/
+mkdir /nfs/lib/
+cp -P /usr/arm-linux-gnueabi/lib/* /nfs/lib/
 ```
 >如果编译busybox是静态链接的话，就不需要这一步；busybox默认是动态链接。
 
 ## 5.4 创建根文件系统目录
 ```
-cd rootfs
+cd /nfs
 mkdir dev proc sys tmp root var mnt home etc
 mkdir -p etc/init.d/
 ```
@@ -105,38 +106,63 @@ git clone https://github.com/mahadevvinay/Embedded_Linux_Files.git
 
 - 拷贝自动挂载配置文件和init启动配置文件
 ```
-cp ./Embedded_Linux_Files/fstab  ./rootfs/etc/
-cp ./Embedded_Linux_Files/inittab  ./rootfs/etc/
-cp ./Embedded_Linux_Files/rcS  ./rootfs/etc/init.d/
-chmod 777 ./rootfs/etc/init.d/rcS
+cp ./Embedded_Linux_Files/fstab  /nfs/etc/
+cp ./Embedded_Linux_Files/inittab  /nfs/etc/
+cp ./Embedded_Linux_Files/rcS  /nfs/etc/init.d/
+chmod 777 /nfs/etc/init.d/rcS
 ```
 
 
 *注意：实际上还可以在这个镜像中插入其他的文件夹，可以参考[ARM Versatile Express Emulation On Qemu From Scratch: Part 1](https://learningfromyoublog.wordpress.com/2016/04/05/131/)，写的很详细。
-## 5.5 生成镜像
+## 5.5 安装nfs服务器
 ```
-dd if=/dev/zero of=a9rootfs.ext3 bs=1M count=32
-```
-
-## 5.6 格式化生成ext3文件系统
-```
-mkfs.ext3 a9rootfs.ext3
+sudo apt-get install nfs-kernel-server
 ```
 
-## 5.7 将文件拷贝到镜像中
+## 5.6 使能NFSv2
+当qemu使用NFS作为根文件系统时，qemu实际上使用的是NFSv2，但是NFSv2默认被disable了，可以通过sudo cat /proc/fs/nfsd/versions查看：
+> -2 +3 +4 +4.1 +4.2
+
+如果此时启动模拟器会报错：VFS: Unable to mount root fs via NFS, trying floppy. 
+
+使能NFSv2：
+将下面的内容追加到/etc/default/nfs-kernel-server
 ```
-mkdir tmpfs
-sudo mount -t ext3 -o loop a9rootfs.ext3 tmpfs/
-sudo cp -r rootfs/*  tmpfs/
-sudo umount tmpfs
+# Options for rpc.nfsd.
+RPCNFSDOPTS="--nfs-version 2,3,4 --debug --syslog"
+```
+然后重启nfs服务器：sudo service nfs-kernel-server restart
+
+## 5.7 配置vexpress的NFS文件系统
+将下面的内容追加到/etc/exports
+```
+/nfs 127.0.0.1(rw,sync,no_subtree_check,no_root_squash,insecure)
+```
+将节点导出供客户端挂载：
+```
+sudo exportfs -av
+```
+本地测试挂载NFS：
+```
+$ mkdir ~/tmp
+$ mount localhost:/nfs ~/tmp
+# check rootfs mounted under /nfs and the unmount it
+$ umount ~/tmp
 ```
 
 # 6. 启动qemu模拟系统
 使用下面的指令启动，会另开一个窗口显示虚拟终端。
 ```
-qemu-system-arm -M vexpress-a9 -m 512M -dtb out/vexpress-v2p-ca9.dtb -kernel out/zImage -append "root=/dev/mmcblk0 rw" -sd a9rootfs.ext3
+qemu-system-arm -M vexpress-a9\
+                -dtb vexpress/vexpress-v2p-ca9.dtb\
+                -kernel vexpress/zImage\
+                -append "root=/dev/nfs nfsroot=10.0.2.2:/nfs rw ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/linuxrc"
 ```
-使用下面的指令启动，会在当前窗口中显示qemu虚拟出的终端。
+使用下面的指令启动，会在当前shell中虚拟出qemu的终端。
 ```
-qemu-system-arm -M vexpress-a9 -m 512M -dtb out/vexpress-v2p-ca9.dtb -kernel out/zImage -nographic -append "root=/dev/mmcblk0 rw console=ttyAMA0" -sd a9rootfs.ext3
+qemu-system-arm -M vexpress-a9\
+                -dtb vexpress/vexpress-v2p-ca9.dtb\
+                -kernel vexpress/zImage\
+                -append "root=/dev/nfs nfsroot=10.0.2.2:/nfs rw ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/linuxrc  console=ttyAMA0"\
+                -serial stdio
 ```
