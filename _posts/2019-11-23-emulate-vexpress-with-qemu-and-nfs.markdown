@@ -154,15 +154,15 @@ $ umount ~/tmp
 使用下面的指令启动，会另开一个窗口显示虚拟终端。
 ```
 qemu-system-arm -M vexpress-a9\
-                -dtb vexpress/vexpress-v2p-ca9.dtb\
-                -kernel vexpress/zImage\
+                -dtb out/vexpress-v2p-ca9.dtb\
+                -kernel out/zImage\
                 -append "root=/dev/nfs nfsroot=10.0.2.2:/nfs rw ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/linuxrc"
 ```
 使用下面的指令启动，会在当前shell中虚拟出qemu的终端。
 ```
 qemu-system-arm -M vexpress-a9\
-                -dtb vexpress/vexpress-v2p-ca9.dtb\
-                -kernel vexpress/zImage\
+                -dtb out/vexpress-v2p-ca9.dtb\
+                -kernel out/zImage\
                 -append "root=/dev/nfs nfsroot=10.0.2.2:/nfs rw ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/linuxrc  console=ttyAMA0"\
                 -serial stdio
 ```
